@@ -201,8 +201,9 @@ export default function ProfileModal({ profile, userId, onClose, onSave }) {
   })
 
   const [customInput, setCustomInput] = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState(null)
+  const [saving, setSaving]         = useState(false)
+  const [deleting, setDeleting]     = useState(false)
+  const [error, setError]           = useState(null)
   const [avatarFile, setAvatarFile]       = useState(null)
   const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url || null)
   const fileInputRef = useRef(null)
@@ -251,6 +252,25 @@ export default function ProfileModal({ profile, userId, onClose, onSave }) {
 
   function updateTrip(index, field, value) {
     set('pastTrips', form.pastTrips.map((t, i) => i === index ? { ...t, [field]: value } : t))
+  }
+
+  // ── Delete account ──
+  async function handleDeleteAccount() {
+    if (!window.confirm('This will permanently delete your account and all your data. This cannot be undone.')) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/delete-account`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error('Failed to delete account')
+      await supabase.auth.signOut()
+    } catch {
+      setError('Failed to delete account. Please try again.')
+      setDeleting(false)
+    }
   }
 
   // ── Save ──
@@ -463,15 +483,21 @@ export default function ProfileModal({ profile, userId, onClose, onSave }) {
           {error && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
           )}
-          <div className="flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              Cancel
+          <div className="flex items-center justify-between gap-3">
+            <button type="button" onClick={handleDeleteAccount} disabled={deleting || saving}
+              className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors">
+              {deleting ? 'Deleting…' : 'Delete Account'}
             </button>
-            <button type="button" onClick={handleSave} disabled={saving}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={handleSave} disabled={saving}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
           </div>
         </div>
 
